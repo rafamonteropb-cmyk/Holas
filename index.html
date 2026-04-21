@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Hola - Arcade Portal</title>
+    <meta name="description" content="Hola: El mejor portal de juegos arcade clásicos en el navegador.">
+    <meta name="author" content="Hola Games">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Press+Start+2P&display=swap');
+
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-pink: #ff0055;
+            --bg-dark: #0d0d12;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg-dark);
+            background-image: radial-gradient(circle at center, #1a1a2e 0%, #0d0d12 100%);
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .arcade-container {
+            display: flex;
+            gap: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            padding: 40px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Panel Lateral */
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 180px;
+        }
+
+        .panel-label {
+            font-size: 10px;
+            color: var(--neon-pink);
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+            font-family: 'Press Start 2P';
+        }
+
+        /* Botones Estilo Gamer */
+        .btn {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 12px;
+            transition: all 0.3s;
+            font-family: 'Orbitron';
+        }
+
+        .btn:hover {
+            background: var(--neon-cyan);
+            color: black;
+            box-shadow: 0 0 20px var(--neon-cyan);
+            transform: scale(1.05);
+        }
+
+        .btn-pink { border-color: var(--neon-pink); color: var(--neon-pink); }
+        .btn-pink:hover { background: var(--neon-pink); color: white; box-shadow: 0 0 20px var(--neon-pink); }
+
+        /* Consola Central */
+        .main-view { text-align: center; }
+
+        h1.logo {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 60px;
+            margin: 0 0 20px 0;
+            color: white;
+            text-shadow: 0 0 10px var(--neon-cyan), 0 0 30px var(--neon-cyan);
+        }
+
+        .screen-frame {
+            background: #000;
+            padding: 12px;
+            border-radius: 20px;
+            border: 4px solid #222;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+            border-radius: 10px;
+            cursor: crosshair;
+        }
+
+        #info-text {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #888;
+            height: 20px;
+            font-family: 'Orbitron';
+        }
+
+        /* Efecto de escaneo de pantalla */
+        .scanline {
+            position: absolute;
+            top: 12px; left: 12px; right: 12px; bottom: 12px;
+            background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="arcade-container">
+        <div class="side-panel">
+            <div class="panel-label">ARCADE</div>
+            <button class="btn" onclick="start('snake')">Snake</button>
+            <button class="btn" onclick="start('pong')">Pong Pro</button>
+            <button class="btn" onclick="start('target')">Reflejos</button>
+            <button class="btn" onclick="start('draw')">Dibujo</button>
+        </div>
+
+        <div class="main-view">
+            <h1 class="logo">HOLA</h1>
+            <div class="screen-frame">
+                <canvas id="gameCanvas" width="500" height="400"></canvas>
+                <div class="scanline"></div>
+            </div>
+            <p id="info-text">Selecciona un módulo para iniciar</p>
+        </div>
+
+        <div class="side-panel">
+            <div class="panel-label">SISTEMA</div>
+            <button class="btn btn-pink" onclick="location.reload()">Reiniciar</button>
+            <button class="btn btn-pink" onclick="start('clear')">Limpiar</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const info = document.getElementById('info-text');
+        let loop, mode = '';
+
+        function clean() {
+            cancelAnimationFrame(loop);
+            canvas.onmousedown = canvas.onmousemove = canvas.onmouseup = canvas.onclick = null;
+            window.onkeydown = window.onkeyup = null;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, 500, 400);
+        }
+
+        function start(game) {
+            clean();
+            mode = game;
+            if (game === 'pong') initPong();
+            if (game === 'snake') initSnake();
+            if (game === 'draw') initDraw();
+            if (game === 'target') initTarget();
+        }
+
+        // --- PONG PROFESIONAL ---
+        function initPong() {
+            info.innerText = "CONTROLES: FLECHAS ARRIBA / ABAJO";
+            let p1 = 160, p2 = 160, bx = 250, by = 200, vx = 5, vy = 3;
+            let keys = {};
+            window.onkeydown = e => keys[e.code] = true;
+            window.onkeyup = e => keys[e.code] = false;
+
+            function run() {
+                if (mode !== 'pong') return;
+                // Movimiento Jugador
+                if (keys.ArrowUp && p1 > 0) p1 -= 6;
+                if (keys.ArrowDown && p1 < 320) p1 += 6;
+                // IA mejorada
+                let target = by - 40;
+                if (p2 < target) p2 += 3.5; else if (p2 > target) p2 -= 3.5;
+
+                bx += vx; by += vy;
+
+                // REBOTE PAREDES
+                if (by <= 0 || by >= 390) vy *= -1;
+
+                // REBOTE RAQUETAS
+                if (bx < 25 && by > p1 && by < p1 + 80) { vx = Math.abs(vx) + 0.2; bx = 25; }
+                if (bx > 465 && by > p2 && by < p2 + 80) { vx = -Math.abs(vx) - 0.2; bx = 465; }
+
+                if (bx < 0 || bx > 500) { bx = 250; by = 200; vx = 5 * (vx > 0 ? -1 : 1); }
+
+                ctx.fillStyle = "black"; ctx.fillRect(0,0,500,400);
+                ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(248, 0, 4, 400);
+                ctx.fillStyle = "#00f3ff"; ctx.fillRect(10, p1, 12, 80); // Jugador
+                ctx.fillStyle = "#ff0055"; ctx.fillRect(478, p2, 12, 80); // IA
+                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(bx, by, 7, 0, 7); ctx.fill();
+                loop = requestAnimationFrame(run);
+            }
+            run();
+        }
+
+        // --- SNAKE ---
+        function initSnake() {
+            info.innerText = "CONTROLES: FLECHAS DEL TECLADO";
+            let s = [{x:240, y:200}], f = {x:100, y:100}, dx=20, dy=0, nextD={x:20, y:0}, last=0;
+            window.onkeydown = e => {
+                if(e.code==='ArrowUp' && dy===0) nextD={x:0, y:-20};
+                if(e.code==='ArrowDown' && dy===0) nextD={x:0, y:20};
+                if(e.code==='ArrowLeft' && dx===0) nextD={x:-20, y:0};
+                if(e.code==='ArrowRight' && dx===0) nextD={x:20, y:0};
+            };
+
+            function run(t) {
+                if (mode !== 'snake') return;
+                loop = requestAnimationFrame(run);
+                if (t - last < 100) return;
+                last = t;
+                dx = nextD.x; dy = nextD.y;
+                let h = {x: s[0].x + dx, y: s[0].y + dy};
+                if (h.x<0||h.x>=500||h.y<0||h.y>=400||s.some(p=>p.x===h.x&&p.y===h.y)) return start('snake');
+                s.unshift(h);
+                if (h.x===f.x && h.y===f.y) f={x:Math.floor(Math.random()*24)*20, y:Math.floor(Math.random()*19)*20};
+                else s.pop();
+                ctx.fillStyle="black"; ctx.fillRect(0,0,500,400);
+                ctx.fillStyle="#ff0055"; ctx.fillRect(f.x, f.y, 18, 18);
+                ctx.fillStyle="#00f3ff"; s.forEach(p=>ctx.fillRect(p.x, p.y, 18, 18));
+            }
+            run(0);
+        }
+
+        // --- DIBUJO NEÓN ---
+        function initDraw() {
+            info.innerText = "DIBUJA CON EL MOUSE (CLIC PARA PINTAR)";
+            let paint = false;
+            canvas.onmousedown = () => paint = true;
+            canvas.onmouseup = () => { paint = false; ctx.beginPath(); };
+            canvas.onmousemove = e => {
+                if (!paint) return;
+                const r = canvas.getBoundingClientRect();
+                ctx.lineWidth = 5; ctx.lineCap = 'round';
+                ctx.strokeStyle = `hsl(${Math.random()*360}, 100%, 50%)`;
+                ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
+                ctx.stroke(); ctx.beginPath();
+                ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+            };
+        }
+
+        // --- TARGET ---
+        function initTarget() {
+            let x=250, y=200, r=40, pts=0;
+            info.innerText = "¡PUNTOS: 0!";
+            canvas.onclick = e => {
+                const rect = canvas.getBoundingClientRect();
+                if (Math.hypot((e.clientX-rect.left)-x, (e.clientY-rect.top)-y) < r) {
+                    x = Math.random()*440+30; y = Math.random()*340+30;
+                    r = Math.max(10, r-2); pts++;
+                    info.innerText = "¡PUNTOS: " + pts + "!";
+                }
+            };
+            function run() {
+                if (mode !== 'target') return;
+                ctx.fillStyle="black"; ctx.fillRect(0,0,500,400);
+                ctx.shadowBlur = 20; ctx.shadowColor = "#ff0055";
+                ctx.fillStyle="#ff0055"; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+                ctx.shadowBlur = 0;
+                loop = requestAnimationFrame(run);
+            }
+            run();
+        }
+
+        start('target');
+    </script>
+</body>
+</html>
